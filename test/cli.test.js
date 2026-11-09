@@ -25,8 +25,9 @@ test('exit codes support CI without confusing drift with tool failure', () => {
   assert.equal(cli(...args, '--fail-on-drift').status, 1);
   assert.equal(cli(...args, '--format', 'markdown').status, 0);
   const mdResult = cli(...args, '--format', 'markdown');
-  assert.ok(mdResult.stdout.includes('### Webhook Structural Comparison Report'));
-  assert.ok(mdResult.stdout.includes('- `\\/order\\/status`'));
+  assert.ok(mdResult.stdout.includes('### Webhook sample comparison'));
+  assert.ok(mdResult.stdout.includes('- `/order/status`'));
+  assert.ok(mdResult.stdout.includes('- `/order/total`: `number` → `string`'));
   assert.equal(cli(...args, '--format', 'markdown', '--fail-on-drift').status, 1);
   assert.equal(cli(...args, '--format', 'invalid-fmt').status, 2);
   assert.equal(cli('validate', 'examples/order.created.json', '--schema', 'examples/order.schema.json').status, 0);

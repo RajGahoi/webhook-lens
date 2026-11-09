@@ -174,8 +174,34 @@ export function comparePayloads(before, after) {
   };
 }
 
-function escapeMarkdown(text) {
-  return String(text).replace(/[\\`*_{}[\]()#+\-.!|/<>]/g, '\\$&');
+function sanitizePointer(pointer) {
+  // Replace control characters (C0 control characters and DEL) visibly
+  return String(pointer).replace(/[\x00-\x1f\x7f-\x9f]/g, (ch) => {
+    switch (ch) {
+      case '\n': return '\\n';
+      case '\r': return '\\r';
+      case '\t': return '\\t';
+      default: return `\\x${ch.charCodeAt(0).toString(16).padStart(2, '0')}`;
+    }
+  });
+}
+
+function formatInlineCode(text) {
+  const sanitized = sanitizePointer(text);
+  // Find the longest sequence of consecutive backticks
+  const matches = sanitized.match(/`+/g);
+  let maxBackticks = 0;
+  if (matches) {
+    for (const match of matches) {
+      if (match.length > maxBackticks) maxBackticks = match.length;
+    }
+  }
+  const delimiter = '`'.repeat(maxBackticks + 1);
+  // CommonMark requires a space if the code begins or ends with a backtick,
+  // or when using multiple backticks for delimiters
+  const needsPadding = maxBackticks > 0 || sanitized.startsWith('`') || sanitized.endsWith('`');
+  const inner = needsPadding ? ` ${sanitized} ` : sanitized;
+  return `${delimiter}${inner}${delimiter}`;
 }
 
 /** Formats structural comparison drift as an opt-in Markdown report. */
@@ -184,14 +210,14 @@ export function formatMarkdownComparison(drift) {
     fail('INVALID_COMPARISON_RESULT', 'Drift comparison result must be an object.');
   }
   const lines = [
-    '### Webhook Structural Comparison Report',
+    '### Webhook sample comparison',
     '',
-    '> **Notice:** This comparison describes structural differences between two specific payload samples and does not establish a universal compatibility guarantee.',
+    '> This report describes structural differences between two payload samples. It does not guarantee compatibility or requiredness.',
     '',
     '#### Summary',
-    `- **Added paths:** ${drift.added.length}`,
-    `- **Removed paths:** ${drift.removed.length}`,
-    `- **Type changes:** ${drift.typeChanged.length}`,
+    `- Added paths: ${drift.added.length}`,
+    `- Removed paths: ${drift.removed.length}`,
+    `- Type changes: ${drift.typeChanged.length}`,
     '',
     '#### Added',
   ];
@@ -200,7 +226,7 @@ export function formatMarkdownComparison(drift) {
     lines.push('_None_');
   } else {
     for (const path of drift.added) {
-      lines.push(`- \`${escapeMarkdown(path)}\``);
+      lines.push(`- ${formatInlineCode(path)}`);
     }
   }
 
@@ -209,21 +235,19 @@ export function formatMarkdownComparison(drift) {
     lines.push('_None_');
   } else {
     for (const path of drift.removed) {
-      lines.push(`- \`${escapeMarkdown(path)}\``);
+      lines.push(`- ${formatInlineCode(path)}`);
     }
   }
 
-  lines.push('', '#### Type Changes');
+  lines.push('', '#### Type changes');
   if (drift.typeChanged.length === 0) {
     lines.push('_None_');
   } else {
-    lines.push('| Path | Baseline | Candidate |');
-    lines.push('| :--- | :--- | :--- |');
     for (const item of drift.typeChanged) {
-      const escapedPath = `\`${escapeMarkdown(item.path)}\``;
-      const beforeTypes = `\`${escapeMarkdown(item.before.join(', '))}\``;
-      const afterTypes = `\`${escapeMarkdown(item.after.join(', '))}\``;
-      lines.push(`| ${escapedPath} | ${beforeTypes} | ${afterTypes} |`);
+      const pathCode = formatInlineCode(item.path);
+      const beforeTypes = item.before.map(t => `\`${t}\``).join(' | ');
+      const afterTypes = item.after.map(t => `\`${t}\``).join(' | ');
+      lines.push(`- ${pathCode}: ${beforeTypes} → ${afterTypes}`);
     }
   }
 

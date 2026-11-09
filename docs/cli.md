@@ -38,6 +38,8 @@ node bin/webhook-lens.js compare before.json after.json --format markdown
 
 This is a structural comparison. A price changing from `100` to `1000` can keep the same type and still have an important business effect.
 
+> **Caution:** Field names and JSON Pointer paths themselves may contain sensitive, personal, or proprietary identifiers (such as user IDs, tokens, or email addresses). Review paths for confidential data before sharing a Markdown comparison report in a pull request or public forum.
+
 ### Example fixtures
 
 In addition to order events, `examples/` includes synthetic fixtures for inventory and refund events:
